@@ -65,8 +65,10 @@ module Paperclip
       ensure_required_accessors!
 
       if uploaded_file.is_a?(Paperclip::Attachment)
-        uploaded_file = uploaded_file.to_file(:original)
-        close_uploaded_file = uploaded_file.respond_to?(:close)
+         ct = uploaded_file.content_type
+         uploaded_file = uploaded_file.to_file(:original)
+         uploaded_file.instance_eval "def content_type; '#{ct}'; end"
+         close_uploaded_file = uploaded_file.respond_to?(:close)
       end
 
       return nil unless valid_assignment?(uploaded_file)
@@ -75,6 +77,11 @@ module Paperclip
       self.clear
 
       return nil if uploaded_file.nil?
+      
+      # Patch to use mimetype_fu for octet-stream bullshit
+      if uploaded_file.content_type.strip == 'application/octet-stream'
+        uploaded_file.content_type = File.mime_type?(uploaded_file.original_filename)
+      end
 
       @queued_for_write[:original]   = uploaded_file.to_tempfile
       instance_write(:file_name,       uploaded_file.original_filename.strip.gsub(/[^A-Za-z\d\.\-_]+/, '_'))
